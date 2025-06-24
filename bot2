@@ -5,7 +5,7 @@ const cron = require("node-cron");
 require("dayjs/locale/pt-br");
 dayjs.locale("pt-br");
 
-const TOKEN = "8006426680:AAFIpIyeEWirU7hg7jrEWUp_4YAH3Ku0cxs"; // substitua pelo seu token real
+const TOKEN = "8006426680:AAFIpIyeEWirU7hg7jrEWUp_4YAH3Ku0cxs";
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 const DATA_FILE = "dados.json";
