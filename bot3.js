@@ -1,13 +1,17 @@
+const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
 const fs = require("fs");
 const dayjs = require("dayjs");
-const cron = require("node-cron");
 require("dayjs/locale/pt-br");
 dayjs.locale("pt-br");
 
-// Token do bot via variável de ambiente
+const app = express();
+app.use(express.json());
+
 const TOKEN = process.env.TOKEN;
-const bot = new TelegramBot(TOKEN, { polling: true });
+const BASE_URL = process.env.BASE_URL;
+const bot = new TelegramBot(TOKEN);
+bot.setWebHook(`${BASE_URL}/bot${TOKEN}`);
 
 const DATA_FILE = "dados.json";
 let dados = fs.existsSync(DATA_FILE)
@@ -39,7 +43,7 @@ function responderHorarioPara(data) {
   return `📚 Horário de ${diaSemana}:\n` + materias.split(",").map(m => `- ${m.trim()}`).join("\n");
 }
 
-bot.on("message", async (msg) => {
+bot.on("message", (msg) => {
   const texto = msg.text?.trim();
   const id = msg.chat.id;
   if (!texto) return;
@@ -104,14 +108,12 @@ bot.on("message", async (msg) => {
   }
 });
 
-// Envia lembrete automático todos os dias às 20h
-cron.schedule("0 20 * * *", () => {
-  const hoje = dayjs();
-  const amanha = hoje.add(1, "day");
-  const dataAmanha = formatarData(amanha);
-  const texto = responderTarefasPara(dataAmanha) + "\n\n" + responderHorarioPara(dataAmanha);
+// Webhook endpoint
+app.post(`/bot${TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
 
-  for (const id of dados.usuarios) {
-    bot.sendMessage(id, texto);
-  }
+app.listen(3000, () => {
+  console.log("✅ Bot rodando com webhook na porta 3000");
 });
