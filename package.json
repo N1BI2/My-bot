@@ -1,0 +1,13 @@
+{
+  "name": "telegram-bot",
+  "version": "1.0.0",
+  "main": "bot3.js",
+  "scripts": {
+    "start": "node bot3.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.61.0",
+    "dayjs": "^1.11.9",
+    "node-cron": "^3.0.2"
+  }
+}
