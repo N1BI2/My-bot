@@ -5,8 +5,8 @@ const cron = require("node-cron");
 require("dayjs/locale/pt-br");
 dayjs.locale("pt-br");
 
-
-const TOKEN = "8006426680:AAFIpIyeEWirU7hg7jrEWUp_4YAH3Ku0cxs";
+// Usa a variável de ambiente para o token
+const TOKEN = process.env.TOKEN;
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 const DATA_FILE = "dados.json";
@@ -26,37 +26,17 @@ function getDiaSemana(dia) {
   return dayjs(dia, "DD/MM").format("dddd").toLowerCase();
 }
 
-function getTarefasChat(id) {
-  if (!dados.tarefas[id]) dados.tarefas[id] = {};
-  return dados.tarefas[id];
+function responderTarefasPara(data) {
+  const tarefas = dados.tarefas[data] || [];
+  if (tarefas.length === 0) return `📆 Tarefas para ${data}: Nenhuma registrada.`;
+  return `📌 Tarefas para ${data}:\n` + tarefas.map((t, i) => `${i + 1}. ${t}`).join("\n");
 }
 
-function getHorariosChat(id) {
-  if (!dados.horarios[id]) dados.horarios[id] = {};
-  return dados.horarios[id];
-}
-
-function responderTarefasComBotoes(id, data) {
-  const tarefasChat = getTarefasChat(id);
-  const tarefas = tarefasChat[data] || [];
-  if (tarefas.length === 0) return { text: `📆 Tarefas para ${data}: Nenhuma registrada.` };
-
-  const text = `📌 Tarefas para ${data}:\n` + tarefas.map((t, i) => `${i + 1}. ${t}`).join("\n");
-
-  const inline_keyboard = tarefas.map((_, i) => [{
-    text: `❌ Remover ${i + 1}`,
-    callback_data: `remover|${data}|${i}`
-  }]);
-
-  return { text, options: { reply_markup: { inline_keyboard } } };
-}
-
-function responderHorarioPara(id, data) {
-  const horariosChat = getHorariosChat(id);
+function responderHorarioPara(data) {
   const diaSemana = getDiaSemana(data);
-  const materias = horariosChat[diaSemana];
+  const materias = dados.horarios[diaSemana];
   if (!materias) return `📚 Horário de ${diaSemana}: Não registrado.`;
-  return `📚 Horário de ${diaSemana}:\n` + materias.split(",").map(m => `- ${m.trim()}`).join("\n`);
+  return `📚 Horário de ${diaSemana}:\n` + materias.split(",").map(m => `- ${m.trim()}`).join("\n");
 }
 
 bot.on("message", async (msg) => {
@@ -76,30 +56,13 @@ bot.on("message", async (msg) => {
   const dataHoje = formatarData(hoje);
   const dataAmanha = formatarData(amanha);
 
-  if (comando === "/start" || comando === "/menu") {
-    return bot.sendMessage(id, "📋 Menu Principal:", {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: "✅ Adicionar Tarefa", callback_data: "menu_add" },
-            { text: "📌 Listar Tarefas", callback_data: "menu_list" }
-          ],
-          [
-            { text: "📚 Ver Horário", callback_data: "menu_schedule" }
-          ]
-        ]
-      }
-    });
-  }
-
   if (comando === "/adicionar") {
     const ultima = args[args.length - 1];
     const data = /^\d{2}\/\d{2}$/.test(ultima) ? ultima : dataHoje;
     const tarefa = args.slice(0, /^\d{2}\/\d{2}$/.test(ultima) ? -1 : undefined).join(" ");
 
-    const tarefasChat = getTarefasChat(id);
-    if (!tarefasChat[data]) tarefasChat[data] = [];
-    tarefasChat[data].push(tarefa);
+    if (!dados.tarefas[data]) dados.tarefas[data] = [];
+    dados.tarefas[data].push(tarefa);
     salvarDados();
     return bot.sendMessage(id, `✅ Tarefa adicionada para ${data}: ${tarefa}`);
   }
@@ -109,97 +72,63 @@ bot.on("message", async (msg) => {
     let data = dataHoje;
     if (qual === "amanha") data = dataAmanha;
     else if (/^\d{2}\/\d{2}$/.test(qual)) data = qual;
-    const resposta = responderTarefasComBotoes(id, data);
-    return bot.sendMessage(id, resposta.text, resposta.options);
+    return bot.sendMessage(id, responderTarefasPara(data));
   }
 
   if (comando === "/remover") {
-    if (args.length < 2 || isNaN(args[0])) {
-      return bot.sendMessage(id, "❌ Uso: /remover <número> <data no formato DD/MM>");
-    }
-
     const indice = parseInt(args[0]) - 1;
     const data = args[1];
-    const tarefasChat = getTarefasChat(id);
-    if (tarefasChat[data] && tarefasChat[data][indice]) {
-      const removida = tarefasChat[data].splice(indice, 1);
+    if (dados.tarefas[data] && dados.tarefas[data][indice]) {
+      const removida = dados.tarefas[data].splice(indice, 1);
       salvarDados();
-      return bot.sendMessage(id, `🗑️ Tarefa removida: ${removida[0]}`);
+      return bot.sendMessage(id, `🗑️ Tarefa removida: ${removida}`);
     } else {
       return bot.sendMessage(id, `⚠️ Não encontrei essa tarefa.`);
     }
   }
 
   if (comando === "/horario") {
-    const dia = args[0]?.toLowerCase();
+    const dia = args[0].toLowerCase();
     const materias = args.slice(1).join(" ");
-    if (!dia || !materias) {
-      return bot.sendMessage(id, "❌ Uso: /horario <dia-da-semana> <matérias separadas por vírgula>");
-    }
-
-    const horariosChat = getHorariosChat(id);
-    horariosChat[dia] = materias;
+    dados.horarios[dia] = materias;
     salvarDados();
     return bot.sendMessage(id, `✅ Horário salvo para ${dia}: ${materias}`);
   }
 
   if (comando === "/listarhorario") {
     const dia = args[0]?.toLowerCase() || hoje.format("dddd").toLowerCase();
-    const horariosChat = getHorariosChat(id);
-    const materias = horariosChat[dia];
+    const materias = dados.horarios[dia];
     if (!materias) return bot.sendMessage(id, `📚 Horário de ${dia}: Não registrado.`);
     const resposta = `📚 Horário de ${dia}:\n` + materias.split(",").map(m => `- ${m.trim()}`).join("\n");
     return bot.sendMessage(id, resposta);
   }
 });
 
-// Lida com os botões inline
-bot.on("callback_query", (query) => {
-  const id = query.message.chat.id;
-  const data = query.data;
-
-  // MENU PRINCIPAL
-  if (data === "menu_add") {
-    bot.sendMessage(id, "✏️ Use o comando:\n/adicionar <tarefa> [DD/MM]");
-  }
-
-  if (data === "menu_list") {
-    const hoje = formatarData(dayjs());
-    const resposta = responderTarefasComBotoes(id, hoje);
-    bot.sendMessage(id, resposta.text, resposta.options);
-  }
-
-  if (data === "menu_schedule") {
-    const hoje = formatarData(dayjs());
-    const resposta = responderHorarioPara(id, hoje);
-    bot.sendMessage(id, resposta);
-  }
-
-  // REMOÇÃO DE TAREFAS
-  if (data.startsWith("remover|")) {
-    const [_, dataTarefa, indiceStr] = data.split("|");
-    const indice = parseInt(indiceStr);
-    const tarefasChat = getTarefasChat(id);
-    if (tarefasChat[dataTarefa] && tarefasChat[dataTarefa][indice]) {
-      const removida = tarefasChat[dataTarefa].splice(indice, 1);
-      salvarDados();
-      bot.sendMessage(id, `🗑️ Tarefa removida: ${removida[0]}`);
-    } else {
-      bot.sendMessage(id, `⚠️ Não encontrei essa tarefa.`);
-    }
-  }
-
-  bot.answerCallbackQuery(query.id);
-});
-
-// Envia lembrete diário às 20h
+// Agendador diário às 20h
 cron.schedule("0 20 * * *", () => {
-  const amanha = dayjs().add(1, "day");
+  const hoje = dayjs();
+  const amanha = hoje.add(1, "day");
   const dataAmanha = formatarData(amanha);
+  const texto = responderTarefasPara(dataAmanha) + "\n\n" + responderHorarioPara(dataAmanha);
 
   for (const id of dados.usuarios) {
-    const resposta = responderTarefasComBotoes(id, dataAmanha);
-    const horario = responderHorarioPara(id, dataAmanha);
-    bot.sendMessage(id, resposta.text + "\n\n" + horario, resposta.options);
+    bot.sendMessage(id, texto);
   }
 });
+📦 package.json (coloque no seu projeto também)
+json
+Copiar
+Editar
+{
+  "name": "telegram-bot",
+  "version": "1.0.0",
+  "main": "bot3.js",
+  "scripts": {
+    "start": "node bot3.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.61.0",
+    "dayjs": "^1.11.9",
+    "node-cron": "^3.0.2"
+  }
+}
