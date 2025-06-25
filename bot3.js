@@ -5,7 +5,7 @@ const cron = require("node-cron");
 require("dayjs/locale/pt-br");
 dayjs.locale("pt-br");
 
-// Usa a variável de ambiente para o token
+// Token do bot via variável de ambiente
 const TOKEN = process.env.TOKEN;
 const bot = new TelegramBot(TOKEN, { polling: true });
 
@@ -104,7 +104,7 @@ bot.on("message", async (msg) => {
   }
 });
 
-// Agendador diário às 20h
+// Envia lembrete automático todos os dias às 20h
 cron.schedule("0 20 * * *", () => {
   const hoje = dayjs();
   const amanha = hoje.add(1, "day");
@@ -115,20 +115,3 @@ cron.schedule("0 20 * * *", () => {
     bot.sendMessage(id, texto);
   }
 });
-📦 package.json (coloque no seu projeto também)
-json
-Copiar
-Editar
-{
-  "name": "telegram-bot",
-  "version": "1.0.0",
-  "main": "bot3.js",
-  "scripts": {
-    "start": "node bot3.js"
-  },
-  "dependencies": {
-    "node-telegram-bot-api": "^0.61.0",
-    "dayjs": "^1.11.9",
-    "node-cron": "^3.0.2"
-  }
-}
