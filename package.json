@@ -1,9 +1,9 @@
 {
   "name": "telegram-bot",
   "version": "1.0.0",
-  "main": "bot3.js",  // ou o nome do seu arquivo principal
+  "main": "bot3.js",
   "scripts": {
-    "start": "node bot3.js"  // ou o nome correto do arquivo
+    "start": "node bot3.js"
   },
   "dependencies": {
     "express": "^4.18.2",
