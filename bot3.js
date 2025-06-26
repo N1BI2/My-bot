@@ -30,8 +30,8 @@ function getDiaSemana(dia) {
   return dayjs(dia, "DD/MM").format("dddd").toLowerCase();
 }
 
-function responderTarefasPara(data) {
-  const tarefas = dados.tarefas[data] || [];
+function responderTarefasPara(data, id) {
+  const tarefas = dados.tarefas[id]?.[data] || [];
   if (tarefas.length === 0) return `📆 Tarefas para ${data}: Nenhuma registrada.`;
   return `📌 Tarefas para ${data}:\n` + tarefas.map((t, i) => `${i + 1}. ${t}`).join("\n");
 }
@@ -48,9 +48,15 @@ bot.on("message", (msg) => {
   const id = msg.chat.id;
   if (!texto) return;
 
+  // Adicionar usuário, se ainda não estiver na lista
   if (!dados.usuarios.includes(id)) {
     dados.usuarios.push(id);
     salvarDados();
+  }
+
+  // Criar um espaço para o usuário em tarefas, caso ainda não exista
+  if (!dados.tarefas[id]) {
+    dados.tarefas[id] = {};
   }
 
   const args = texto.split(" ");
@@ -67,8 +73,8 @@ bot.on("message", (msg) => {
     const data = /^\d{2}\/\d{2}$/.test(ultima) ? ultima : dataHoje;
     const tarefa = args.slice(0, /^\d{2}\/\d{2}$/.test(ultima) ? -1 : undefined).join(" ");
 
-    if (!dados.tarefas[data]) dados.tarefas[data] = [];
-    dados.tarefas[data].push(tarefa);
+    if (!dados.tarefas[id][data]) dados.tarefas[id][data] = [];
+    dados.tarefas[id][data].push(tarefa);
     salvarDados();
     return bot.sendMessage(id, `✅ Tarefa adicionada para ${data}: ${tarefa}`);
   }
@@ -78,14 +84,14 @@ bot.on("message", (msg) => {
     let data = dataHoje;
     if (qual === "amanha") data = dataAmanha;
     else if (/^\d{2}\/\d{2}$/.test(qual)) data = qual;
-    return bot.sendMessage(id, responderTarefasPara(data));
+    return bot.sendMessage(id, responderTarefasPara(data, id));
   }
 
   if (comando === "/remover") {
     const indice = parseInt(args[0]) - 1;
     const data = args[1];
-    if (dados.tarefas[data] && dados.tarefas[data][indice]) {
-      const removida = dados.tarefas[data].splice(indice, 1);
+    if (dados.tarefas[id] && dados.tarefas[id][data] && dados.tarefas[id][data][indice]) {
+      const removida = dados.tarefas[id][data].splice(indice, 1);
       salvarDados();
       return bot.sendMessage(id, `🗑️ Tarefa removida: ${removida}`);
     } else {
