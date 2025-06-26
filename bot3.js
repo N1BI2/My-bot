@@ -55,8 +55,10 @@ bot.on("message", (msg) => {
 
   const args = texto.split(" ");
   const comando = args.shift().toLowerCase();
+
+  // Ajuste para calcular corretamente o dia atual e o próximo dia
   const hoje = dayjs();
-  const amanha = hoje.add(1, "day");
+  const amanha = hoje.hour() >= 21 ? hoje.add(1, "day") : hoje; // Muda para o próximo dia após 21h
   const dataHoje = formatarData(hoje);
   const dataAmanha = formatarData(amanha);
 
@@ -114,6 +116,7 @@ app.post(`/bot${TOKEN}`, (req, res) => {
   res.sendStatus(200);
 });
 
-app.listen(3000, () => {
-  console.log("✅ Bot rodando com webhook na porta 3000");
+const port = process.env.PORT || 3000;  // Ajuste para usar a porta configurada no Render
+app.listen(port, () => {
+  console.log(`✅ Bot rodando com webhook na porta ${port}`);
 });
